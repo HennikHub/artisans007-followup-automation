@@ -1,0 +1,330 @@
+{
+  "name": "Artisans007 - AI Customer Follow-up Reminder",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Artisans007 - AI Customer Follow-up Reminder\n\nRuns every morning at 8:00 AM. It finds customers whose Status is Pending and whose Next Follow-up Date is today or earlier, drafts a personalised follow-up message with Google Gemini, and emails it to Henry for review.\n\nThe workflow never messages customers directly. Henry reviews each suggestion and contacts the customer manually.",
+        "height": 220,
+        "width": 620,
+        "color": 4
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000001",
+      "name": "Overview Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [220, 40]
+    },
+    {
+      "parameters": {
+        "content": "## Before you activate\n\n1. Replace REPLACE_WITH_SPREADSHEET_ID in both Google Sheets nodes.\n2. Confirm the tab is named Customers and the headers match the required layout.\n3. Connect the Google Sheets, Gmail and Google AI credentials.\n4. Replace henry@artisans007.com in the Gmail node with Henry's email address.\n5. Set the workflow timezone in Settings so 8:00 AM means your local time.\n6. Run Execute workflow to test, then activate.",
+        "height": 220,
+        "width": 520,
+        "color": 6
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000002",
+      "name": "Setup Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [900, 40]
+    },
+    {
+      "parameters": {
+        "content": "## Manual step: Henry\n\nHenry reviews the suggested message in the email and contacts the customer manually.\n\nAfter the reminder is sent, Status changes to Reminder Sent, so the same customer is not emailed again. To schedule another follow-up, set Status back to Pending and enter a new Next Follow-up Date.",
+        "height": 180,
+        "width": 420,
+        "color": 7
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000003",
+      "name": "Henry Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1200, 480]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000010",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Customers",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000011",
+      "name": "Read Customer Records",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [480, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5b1f0a10-0000-4000-8000-000000000021",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Pending",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "5b1f0a10-0000-4000-8000-000000000022",
+              "leftValue": "={{ $json['Next Follow-up Date'] }}",
+              "rightValue": "={{ $now.plus({ days: 1 }).startOf('day').toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "before"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000012",
+      "name": "Check Follow-up Due",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {},
+      "id": "5b1f0a10-0000-4000-8000-000000000013",
+      "name": "Skip Customer",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [720, 500]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a friendly, professional team member at Artisans007, a trusted home services business offering painting, plumbing, kitchen cabinets and renovation work.\n\nWrite a short follow-up message to a customer who has not replied yet.\n\nCustomer details:\n- Name: {{ $json['Customer Name'] }}\n- Service requested: {{ $json['Service Required'] }}\n- Enquiry date: {{ $json['Enquiry Date'] }}\n- Last contacted: {{ $json['Last Contacted'] }}\n- Notes from our records: {{ $json['Notes'] }}\n\nRules:\n- Start with a greeting using the customer's first name.\n- Mention the service they enquired about.\n- If the notes mention a quotation, politely ask whether they have had a chance to review it. Otherwise, ask whether they still need help with the project.\n- Offer to answer any questions they have.\n- Keep it warm, professional and under 80 words.\n- Do not invent prices, discounts, dates or promises.\n- Sign off as the Artisans007 team.\n- Return only the message text, with no subject line, no notes and no explanation.",
+        "hasOutputParser": false
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000014",
+      "name": "Draft Follow-up Message",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {
+          "temperature": 0.6
+        }
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000015",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [960, 520],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google AI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "henry@artisans007.com",
+        "subject": "=Artisans007 - Customer Follow-up Reminder: {{ $('Check Follow-up Due').item.json['Customer Name'] }}",
+        "emailType": "text",
+        "message": "=Customer Follow-up Reminder\n\nCustomer: {{ $('Check Follow-up Due').item.json['Customer Name'] }}\nPhone: {{ $('Check Follow-up Due').item.json['Phone Number'] }}\nService: {{ $('Check Follow-up Due').item.json['Service Required'] }}\nEnquiry Date: {{ $('Check Follow-up Due').item.json['Enquiry Date'] }}\nNext Follow-up Date: {{ $('Check Follow-up Due').item.json['Next Follow-up Date'] }}\nStatus: {{ $('Check Follow-up Due').item.json['Status'] }}\nNotes: {{ $('Check Follow-up Due').item.json['Notes'] }}\n\nSUGGESTED MESSAGE (AI-drafted, please review before sending):\n----------------------------------------\n{{ $json.text }}\n----------------------------------------\n\nThis is a suggestion only. Please review it and contact the customer manually.",
+        "options": {}
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000016",
+      "name": "Send Reminder to Henry",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1200, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "sheet",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Customers",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Customer ID": "={{ $('Check Follow-up Due').item.json['Customer ID'] }}",
+            "Status": "Reminder Sent"
+          },
+          "matchingColumns": [
+            "Customer ID"
+          ],
+          "schema": [
+            {
+              "id": "Customer ID",
+              "displayName": "Customer ID",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5b1f0a10-0000-4000-8000-000000000017",
+      "name": "Update Status to Reminder Sent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1440, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Customer Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Customer Records": {
+      "main": [
+        [
+          {
+            "node": "Check Follow-up Due",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Follow-up Due": {
+      "main": [
+        [
+          {
+            "node": "Draft Follow-up Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Draft Follow-up Message",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Follow-up Message": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder to Henry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reminder to Henry": {
+      "main": [
+        [
+          {
+            "node": "Update Status to Reminder Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
