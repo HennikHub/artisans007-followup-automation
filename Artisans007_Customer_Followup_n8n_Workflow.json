@@ -167,7 +167,7 @@
       "parameters": {
         "resource": "message",
         "operation": "send",
-        "sendTo": "henry@artisans007.com",
+        "sendTo": "your-email@example.com",
         "subject": "=Artisans007 - Customer Follow-up Reminder: {{ $('Check Follow-up Due').item.json['Customer Name'] }}",
         "emailType": "text",
         "message": "=Customer Follow-up Reminder\n\nCustomer: {{ $('Check Follow-up Due').item.json['Customer Name'] }}\nPhone: {{ $('Check Follow-up Due').item.json['Phone Number'] }}\nService: {{ $('Check Follow-up Due').item.json['Service Required'] }}\nEnquiry Date: {{ $('Check Follow-up Due').item.json['Enquiry Date'] }}\nNext Follow-up Date: {{ $('Check Follow-up Due').item.json['Next Follow-up Date'] }}\nStatus: {{ $('Check Follow-up Due').item.json['Status'] }}\nNotes: {{ $('Check Follow-up Due').item.json['Notes'] }}\n\nSUGGESTED MESSAGE (AI-drafted, please review before sending):\n----------------------------------------\n{{ $json.text }}\n----------------------------------------\n\nThis is a suggestion only. Please review it and contact the customer manually.",
